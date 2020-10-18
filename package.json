@@ -1,0 +1,27 @@
+{
+  "name": "npc-node-persist",
+  "version": "1.0.0",
+  "description": "Implement node-persist as an engine for node-persistent-cache",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thelaughingwolf/npc-node-persist.git"
+  },
+  "keywords": [
+    "node-cache",
+    "node-persistent-cache",
+    "cache",
+    "files",
+    "fs",
+    "filesystem"
+  ],
+  "author": "Michael Bennett",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/thelaughingwolf/npc-node-persist/issues"
+  },
+  "homepage": "https://github.com/thelaughingwolf/npc-node-persist#readme"
+}
