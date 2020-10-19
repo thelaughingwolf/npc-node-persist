@@ -23,5 +23,11 @@
   "bugs": {
     "url": "https://github.com/thelaughingwolf/npc-node-persist/issues"
   },
-  "homepage": "https://github.com/thelaughingwolf/npc-node-persist#readme"
+  "homepage": "https://github.com/thelaughingwolf/npc-node-persist#readme",
+  "dependencies": {
+    "bottleneck": "^2.19.5",
+    "lodash.defaultsdeep": "^4.6.1",
+    "loglevel": "^1.7.0",
+    "node-persist": "^3.1.0"
+  }
 }
