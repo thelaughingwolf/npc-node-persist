@@ -226,9 +226,9 @@ class NodePersist extends Engine {
 	 * @async
 	 * @return {boolean} - Always returns true
 	 */
-	close() {
+	async close() {
 		// Release the directory 
-		//delete cacheDirectories[this.#directory];
+		await this.#limiter.stop({ dropWaitingJobs: false });
 		NodePersist.#unlockDirectory(this.#directory);
 		return true;
 	}
