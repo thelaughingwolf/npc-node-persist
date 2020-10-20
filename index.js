@@ -25,18 +25,25 @@ class NodePersist extends Engine {
 	 * @param {string} directory - The directory to lock
 	 * @return {Promise} - Promise representing success, or rejection if already locked
 	 */
-	static #lockDirectory(directory) {
+	static #lockDirectory(directory, forEngine) {
+		forEngine.cache.log.trace(`engine.${forEngine.id}|lockDirectory ${directory}`);
+
 		return new Promise((resolve, reject) => {
 			if (NodePersist.#cacheDirectories[directory]) {
+				forEngine.cache.log.trace(`engine.${forEngine.id}|lockDirectory ${directory} is being used by another engine`);
+
 				// If this directory is locked, another NodePersist instance
 				//   is using it, but it might be shutting down right now
 				// Give it 500 ms and then reject
 				setTimeout(() => {
+					forEngine.cache.log.trace(`engine.${forEngine.id}|lockDirectory ${directory} lock acquisition timeout exceeded - rejecting`);
 					reject(new Error(`Another NodePersist engine has already locked directory '${directory}'; use prefix to allow multiple node-persist instances`));
 				}, 500);
 
 				return resolve(NodePersist.#cacheDirectories[directory].lock);
 			} else {
+				forEngine.cache.log.trace(`engine.${forEngine.id}|lockDirectory ${directory} is available`);
+
 				// If this directory is not locked, just proceed
 				return resolve();
 			}
@@ -52,6 +59,8 @@ class NodePersist extends Engine {
 				unlock
 			};
 
+			forEngine.cache.log.trace(`engine.${forEngine.id}|lockDirectory ${directory} lock acquired`);
+
 			return true;
 		});
 	}
@@ -62,11 +71,18 @@ class NodePersist extends Engine {
 	 * @param {string} directory - The directory to unlock
 	 * @return {boolean} - Always returns true
 	 */
-	static #unlockDirectory(directory) {
+	static #unlockDirectory(directory, forEngine) {
+		forEngine.cache.log.trace(`engine.${forEngine.id}|unlockDirectory ${directory}`);
+
 		if (NodePersist.#cacheDirectories[directory]) {
+			forEngine.cache.log.trace(`engine.${forEngine.id}|unlockDirectory ${directory}: calling unlock on engine`);
+
 			NodePersist.#cacheDirectories[directory].unlock();
 			delete NodePersist.#cacheDirectories[directory];
+		} else {
+			forEngine.cache.log.trace(`engine.${forEngine.id}|unlockDirectory ${directory}: no lock present`);
 		}
+
 		return true;
 	}
 
@@ -80,6 +96,9 @@ class NodePersist extends Engine {
 		if (opts.prefix) {
 			opts.directory = path.join(opts.directory, opts.prefix);
 		}
+		
+		this.#directory = opts.directory;
+		this.cache.log.trace(`engine.${this.id}|initializing in directory ${this.#directory}`);
 
 		let readyResolve
 		,	readyReject;
@@ -88,14 +107,15 @@ class NodePersist extends Engine {
 			readyReject = reject;
 		});
 
-		NodePersist.#lockDirectory(opts.directory).then(() => {
-			this.#directory = opts.directory;
+		NodePersist.#lockDirectory(this.#directory, this).then(() => {
 			this.#engine = nodePersist.create({
 				dir: this.#directory
 			});
 			this.#limiter = new Bottleneck({
 				maxConcurrent: 1
 			});
+
+			this.cache.log.trace(`engine.${this.id}|initialized in directory ${this.#directory}`);
 
 			readyResolve();
 		}).catch(readyReject);
@@ -119,6 +139,9 @@ class NodePersist extends Engine {
 	 */
 	async get(key) {
 		await this.#ready;
+
+		this.cache.log.trace(`engine.${this.id}|get ${key}`);
+
 		return this.#limiter.schedule(this.#engine.getItem.bind(this.#engine), key);
 	}
 
@@ -133,6 +156,9 @@ class NodePersist extends Engine {
 	 */
 	async set(key, val, ttl) {
 		await this.#ready;
+
+		this.cache.log.trace(`engine.${this.id}|set ${key} (TTL: ${ttl}):`, val);
+
 		if (ttl === undefined) {
 			ttl = this.cache.getTtl(key);
 			if (ttl) {
@@ -143,7 +169,12 @@ class NodePersist extends Engine {
 				}
 			}
 		}
+
+		this.cache.log.trace(`engine.${this.id}|set ${key} TTL:`, ttl);
+
 		await this.#limiter.schedule(this.#engine.updateItem.bind(this.#engine), key, val, { ttl });
+
+		this.cache.log.trace(`engine.${this.id}|set ${key} complete`);
 
 		return val;
 	}
@@ -157,7 +188,14 @@ class NodePersist extends Engine {
 	 */
 	async del(key) {
 		await this.#ready;
-		return this.#limiter.schedule(this.#engine.removeItem.bind(this.#engine), key);
+
+		this.cache.log.trace(`engine.${this.id}|del ${key}`);
+
+		let result = await this.#limiter.schedule(this.#engine.removeItem.bind(this.#engine), key);
+
+		this.cache.log.trace(`engine.${this.id}|del ${key} complete`);
+
+		return result;
 	}
 
 	/**
@@ -170,12 +208,22 @@ class NodePersist extends Engine {
 	 */
 	async ttl(key, ttl) {
 		await this.#ready;
+
+		this.cache.log.trace(`engine.${this.id}|ttl ${key} (TTL: ${ttl})`);
+
 		// node-persist does not expose a way to set a ttl,
 		//   so we have to re-retrieve the value and re-set the datum
-		let val = await this.cache.get(key);
+		let val = await this.cache.get(key)
+		,	result = undefined;
 		if (val !== undefined) {
-			await this.set(key, val, ttl);
+			this.cache.log.trace(`engine.${this.id}|ttl ${key}: updating value`);
+
+			result = await this.set(key, val, ttl);
+		} else {
+			this.cache.log.trace(`engine.${this.id}|ttl ${key}: does not exist`);
 		}
+
+		return result;
 	}
 
 	/**
@@ -186,7 +234,12 @@ class NodePersist extends Engine {
 	 */
 	async load() {
 		await this.#ready;
+
+		this.cache.log.trace(`engine.${this.id}|init`);
+
 		await this.#engine.init();
+
+		this.cache.log.trace(`engine.${this.id}|init complete`);
 
 		let result = [ ];
 
@@ -195,16 +248,11 @@ class NodePersist extends Engine {
 			// That means it may return expired data!
 			// So check that TTL
 			if (!datum.ttl || Date.now() < datum.ttl) {
-				// Although both node-persist and node-cache store ms timestamps,
-				//   node-cache *sets* TTLs in seconds
-				// node-persist sets TTLs in milliseconds
-				let ttl = this.tsToTtl(datum.ttl);
-				if (ttl) {
-					ttl /= 1000;
-				}
-				result.push({ key: datum.key, val: datum.value, ttl });
+				result.push({ key: datum.key, val: datum.value, ttl: this.tsToTtl(datum.ttl) });
 			}
 		});
+
+		this.cache.log.trace(`engine.${this.id}|load complete:`, result);
 
 		return result;
 	}
@@ -217,7 +265,13 @@ class NodePersist extends Engine {
 	 */
 	async flush() {
 		await this.#ready;
+
+		this.cache.log.trace(`engine.${this.id}|flush`);
+
 		await this.#limiter.schedule(this.#engine.clear.bind(this.#engine));
+
+		this.cache.log.trace(`engine.${this.id}|flush complete`);
+
 		return true;
 	}
 
@@ -228,9 +282,19 @@ class NodePersist extends Engine {
 	 * @return {boolean} - Always returns true
 	 */
 	async close() {
-		// Release the directory 
+		await this.#ready;
+
+		this.cache.log.trace(`engine.${this.id}|close`);
+
 		await this.#limiter.stop({ dropWaitingJobs: false });
-		NodePersist.#unlockDirectory(this.#directory);
+
+		this.cache.log.trace(`engine.${this.id}|closed job scheduler`);
+
+		// Release the directory
+		NodePersist.#unlockDirectory(this.#directory, this);
+
+		this.cache.log.trace(`engine.${this.id}|released directory ${this.#directory}`);
+
 		return true;
 	}
 };
