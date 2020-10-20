@@ -3,15 +3,12 @@ const nodePersist = require('node-persist');
 const Bottleneck = require('bottleneck');
 const defaultsDeep = require('lodash.defaultsdeep');
 const path = require('path');
-const log = require('loglevel');
-
-log.getLogger();
 
 class NodePersist extends Engine {
 	#engine;
 	#limiter;
 	#directory;
-	#releaseDirectory;
+	#ready;
 	#defaultOpts = {
 		directory: `.npc/storage`
 	};
@@ -73,7 +70,7 @@ class NodePersist extends Engine {
 		return true;
 	}
 
-	async constructor(opts, cache) {
+	constructor(opts, cache) {
 		super(opts, cache);
 
 		defaultsDeep(opts, this.#defaultOpts);
@@ -84,17 +81,24 @@ class NodePersist extends Engine {
 			opts.directory = path.join(opts.directory, opts.prefix);
 		}
 
-		log.debug(`engine opts:`, opts);
-
-		await NodePersist.#lockDirectory(opts.directory);
-
-		this.#directory = opts.directory;
-		this.#engine = nodePersist.create({
-			dir: this.#directory
+		let readyResolve
+		,	readyReject;
+		this.#ready = new Promise((resolve, reject) => {
+			readyResolve = resolve;
+			readyReject = reject;
 		});
-		this.#limiter = new Bottleneck({
-			maxConcurrent: 1
-		});
+
+		NodePersist.#lockDirectory(opts.directory).then(() => {
+			this.#directory = opts.directory;
+			this.#engine = nodePersist.create({
+				dir: this.#directory
+			});
+			this.#limiter = new Bottleneck({
+				maxConcurrent: 1
+			});
+
+			readyResolve();
+		}).catch(readyReject);
 	}
 
 	/**
@@ -114,6 +118,7 @@ class NodePersist extends Engine {
 	 * @return {*} - The value stored in persistent data, or undefined
 	 */
 	async get(key) {
+		await this.#ready;
 		return this.#limiter.schedule(this.#engine.getItem.bind(this.#engine), key);
 	}
 
@@ -127,6 +132,7 @@ class NodePersist extends Engine {
 	 * @return {*} - The value stored
 	 */
 	async set(key, val, ttl) {
+		await this.#ready;
 		if (ttl === undefined) {
 			ttl = this.cache.getTtl(key);
 		}
@@ -143,6 +149,7 @@ class NodePersist extends Engine {
 	 * @return {undefined}
 	 */
 	async del(key) {
+		await this.#ready;
 		return this.#limiter.schedule(this.#engine.removeItem.bind(this.#engine), key);
 	}
 
@@ -155,6 +162,7 @@ class NodePersist extends Engine {
 	 * @return {(number|undefined)}
 	 */
 	async ttl(key, ttl) {
+		await this.#ready;
 		// node-persist does not expose a way to set a ttl,
 		//   so we have to re-retrieve the value and re-set the datum
 		let val = await this.cache.get(key);
@@ -176,6 +184,7 @@ class NodePersist extends Engine {
 	 * @return {datum[]}
 	 */
 	async load() {
+		await this.#ready;
 		await this.#engine.init();
 
 		let result = [ ];
@@ -206,6 +215,7 @@ class NodePersist extends Engine {
 	 * @return {boolean} - Always returns true
 	 */
 	async flush() {
+		await this.#ready;
 		await this.#limiter.schedule(this.#engine.clear.bind(this.#engine));
 		return true;
 	}
@@ -217,7 +227,6 @@ class NodePersist extends Engine {
 	 * @return {boolean} - Always returns true
 	 */
 	close() {
-		log.debug(`Removing node-persist cache bound to directory ${this.#directory}`);
 		// Release the directory 
 		//delete cacheDirectories[this.#directory];
 		NodePersist.#unlockDirectory(this.#directory);
