@@ -166,7 +166,6 @@ class NodePersist extends Engine {
 		// node-persist does not expose a way to set a ttl,
 		//   so we have to re-retrieve the value and re-set the datum
 		let val = await this.cache.get(key);
-		let result = undefined;
 		if (val !== undefined) {
 			await this.set(key, val, ttl);
 		}
@@ -174,11 +173,6 @@ class NodePersist extends Engine {
 
 	/**
 	 * Load all previously-persisted records
-	 *
-	 * @typedef {Object} datum
-	 * @property {string} key - The key of the entry
-	 * @property {*} val - The stored value of the entry
-	 * @property {(number|undefined)} ttl - The TTL of the entry, in milliseconds
 	 *
 	 * @async
 	 * @return {datum[]}
@@ -201,7 +195,7 @@ class NodePersist extends Engine {
 				if (ttl) {
 					ttl /= 1000;
 				}
-				result.push({key: datum.key, val: datum.value, ttl });
+				result.push({ key: datum.key, val: datum.value, ttl });
 			}
 		});
 
