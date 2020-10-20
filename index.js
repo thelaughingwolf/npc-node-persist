@@ -23,7 +23,7 @@ class NodePersist extends Engine {
 	 *
 	 * @async
 	 * @param {string} directory - The directory to lock
-	 * @return {Promise} - Promise representing the lock, or rejection if already locked
+	 * @return {Promise} - Promise representing success, or rejection if already locked
 	 */
 	static #lockDirectory(directory) {
 		return new Promise((resolve, reject) => {
@@ -52,7 +52,7 @@ class NodePersist extends Engine {
 				unlock
 			};
 
-			return lock;
+			return true;
 		});
 	}
 
