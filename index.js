@@ -135,6 +135,13 @@ class NodePersist extends Engine {
 		await this.#ready;
 		if (ttl === undefined) {
 			ttl = this.cache.getTtl(key);
+			if (ttl) {
+				ttl = ttl - Date.now();
+				if (ttl < 0) { // TTL was actually in the past - instant delete
+					await this.del(key);
+					return undefined;
+				}
+			}
 		}
 		await this.#limiter.schedule(this.#engine.updateItem.bind(this.#engine), key, val, { ttl });
 
