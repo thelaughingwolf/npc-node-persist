@@ -47,12 +47,12 @@ class NodePersist extends Engine {
 				unlock = resolve;
 			});
 
-			NodePersist.#cacheDirectories[opts.directory] = {
+			NodePersist.#cacheDirectories[directory] = {
 				lock,
 				unlock
 			};
 
-			resolve(lock);
+			return lock;
 		});
 	}
 
