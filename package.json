@@ -1,6 +1,6 @@
 {
   "name": "npc-node-persist",
-  "version": ".0.1",
+  "version": "1.0.1",
   "description": "Implement node-persist as an engine for node-persistent-cache",
   "main": "index.js",
   "scripts": {
