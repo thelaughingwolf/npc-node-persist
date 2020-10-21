@@ -115,7 +115,7 @@ class NodePersist extends Engine {
 				maxConcurrent: 1
 			});
 
-			this.cache.log.debug(`engine.${this.id}|initialized in directory ${this.#directory}`);
+			this.cache.log.debug(`engine.${this.id}|initialized - directory ${this.#directory}`);
 
 			readyResolve();
 		}).catch(readyReject);
@@ -138,6 +138,8 @@ class NodePersist extends Engine {
 	 * @return {*} - The value stored in persistent data, or undefined
 	 */
 	async get(key) {
+		this.cache.log.debug(`engine.${this.id}|get ${key} - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|get ${key}`);
@@ -155,6 +157,8 @@ class NodePersist extends Engine {
 	 * @return {*} - The value stored
 	 */
 	async set(key, val, ttl) {
+		this.cache.log.debug(`engine.${this.id}|set ${key} - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|set ${key} (TTL: ${ttl}):`, val);
@@ -187,6 +191,8 @@ class NodePersist extends Engine {
 	 * @return {undefined}
 	 */
 	async del(key) {
+		this.cache.log.debug(`engine.${this.id}|del ${key} - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|del ${key}`);
@@ -207,6 +213,8 @@ class NodePersist extends Engine {
 	 * @return {(number|undefined)}
 	 */
 	async ttl(key, ttl) {
+		this.cache.log.debug(`engine.${this.id}|ttl ${key} - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|ttl ${key} (TTL: ${ttl})`);
@@ -233,6 +241,8 @@ class NodePersist extends Engine {
 	 * @return {datum[]}
 	 */
 	async load() {
+		this.cache.log.debug(`engine.${this.id}|load - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|init`);
@@ -242,6 +252,8 @@ class NodePersist extends Engine {
 		this.cache.log.debug(`engine.${this.id}|init complete`);
 
 		let result = [ ];
+
+		this.cache.log.debug(`engine.${this.id}|load`);
 
 		await this.#engine.forEach((datum) => {
 			// Engine.forEach returns all data without inspecting ttl
@@ -264,6 +276,8 @@ class NodePersist extends Engine {
 	 * @return {boolean} - Always returns true
 	 */
 	async flush() {
+		this.cache.log.debug(`engine.${this.id}|flush - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|flush`);
@@ -282,6 +296,8 @@ class NodePersist extends Engine {
 	 * @return {boolean} - Always returns true
 	 */
 	async close() {
+		this.cache.log.debug(`engine.${this.id}|close - awaiting this.#ready`);
+
 		await this.#ready;
 
 		this.cache.log.debug(`engine.${this.id}|close`);
