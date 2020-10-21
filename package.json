@@ -28,6 +28,6 @@
     "bottleneck": "^2.19.5",
     "lodash.defaultsdeep": "^4.6.1",
     "node-persist": "^3.1.0",
-    "npc-engine": "^1.0.1"
+    "npc-engine": "^1.0.2"
   }
 }
